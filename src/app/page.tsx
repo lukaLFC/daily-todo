@@ -1,13 +1,17 @@
 import { createClient } from "@/lib/supabase/server";
+import { signOut } from "./login/actions";
 
 export default async function Home() {
   const supabase = await createClient();
-  const { error } = await supabase.auth.getSession();
+  const { data } = await supabase.auth.getUser();
 
   return (
     <main style={{ padding: 24 }}>
       <h1>Daily To-Do</h1>
-      <p>{error ? `Supabase error: ${error.message}` : "Connected to Supabase ✅"}</p>
+      <p>Signed in as {data.user?.email}</p>
+      <form action={signOut}>
+        <button>Sign out</button>
+      </form>
     </main>
   );
 }
