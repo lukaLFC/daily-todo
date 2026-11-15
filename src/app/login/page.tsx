@@ -28,6 +28,7 @@ export default async function LoginPage({
             Password
             <input className={styles.input} name="password" type="password" required autoComplete="current-password" />
           </label>
+          <Link href="/forgot-password" className={styles.forgot}>Forgot password?</Link>
           <button className={styles.primary}>Log in</button>
         </form>
 

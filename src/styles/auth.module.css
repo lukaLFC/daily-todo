@@ -12,3 +12,5 @@
 .message { background: rgba(46,158,106,.14); color: #2e9e6a; padding: 8px 10px; border-radius: 8px; font-size: .85rem; margin-bottom: 10px; }
 .switch { text-align: center; font-size: .88rem; margin: 16px 0 0; }
 .switch a { color: #3d6df2; }
+.forgot { align-self: flex-end; font-size: .85rem; color: #3d6df2; text-decoration: none; }
+.forgot:hover { text-decoration: underline; }

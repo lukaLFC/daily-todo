@@ -40,3 +40,23 @@ export async function signOut() {
   await supabase.auth.signOut();
   redirect("/login");
 }
+
+export async function requestPasswordReset(formData: FormData) {
+  const supabase = await createClient();
+  const origin = (await headers()).get("origin");
+  const { error } = await supabase.auth.resetPasswordForEmail(field(formData, "email"), {
+    redirectTo: `${origin}/auth/reset`,
+  });
+  if (error) redirect(`/forgot-password?error=${encodeURIComponent(error.message)}`);
+  // The same message whether or not the email has an account, so nobody can use this form to find out who is registered
+  redirect(`/forgot-password?message=${encodeURIComponent("If that email has an account, a reset link is on its way.")}`);
+}
+
+export async function updatePassword(formData: FormData) {
+  const supabase = await createClient();
+  const { error } = await supabase.auth.updateUser({
+    password: String(formData.get("password") ?? ""),
+  });
+  if (error) redirect(`/reset-password?error=${encodeURIComponent(error.message)}`);
+  redirect("/");
+}
