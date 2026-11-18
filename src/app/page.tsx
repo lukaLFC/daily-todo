@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import type { CSSProperties } from "react";
 import { toggleDone, toggleSelected } from "@/app/lists/actions";
-import { signOut } from "@/app/login/actions";
 import Header from "@/components/Header";
 import Stopwatch from "@/components/Stopwatch";
 import TimezoneSync from "@/components/TimezoneSync";
@@ -63,10 +62,6 @@ export default async function DailyPage() {
           </section>
         );
       })}
-
-      <form action={signOut} className={styles.footer}>
-        <button className={styles.ghost}>Sign out</button>
-      </form>
     </main>
   );
 }

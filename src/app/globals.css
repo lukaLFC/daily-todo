@@ -12,8 +12,25 @@
   --due-bg: #fdebd7;
 }
 
+:root { color-scheme: light dark; }
+:root[data-theme="day"] { color-scheme: light; }
+
+:root[data-theme="night"] {
+  color-scheme: dark;
+  --background: #16181d;
+  --foreground: #eceef3;
+  --card: #1f2229;
+  --muted: #8d93a1;
+  --line: #2d313b;
+  --accent: #7b9bff;
+  --accent-soft: #252c44;
+  --due-bg: #3a2c1c;
+  --danger: #ff7a7a;
+}
+
+/* no choice made yet: follow the computer's setting */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme]) {
     --background: #16181d;
     --foreground: #eceef3;
     --card: #1f2229;

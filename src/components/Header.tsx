@@ -22,10 +22,9 @@ export default function Header({ page, title, subtitle }: Props) {
         >
           {onDaily ? <EyeOffIcon /> : <EyeIcon />}
         </Link>
-        {/* settings: not built yet */}
-        <button type="button" className={styles.iconBtn} aria-label="Settings">
+                <Link href="/settings" className={styles.iconBtn} aria-label="Settings">
           <GearIcon />
-        </button>
+        </Link>
       </div>
     </header>
   );

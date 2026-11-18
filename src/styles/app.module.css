@@ -11,7 +11,10 @@
 /* cards */
 .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px; margin-bottom: 14px; }
 .tinted { background: hsl(var(--hue) 80% 92%); }
-@media (prefers-color-scheme: dark) { .tinted { background: hsl(var(--hue) 35% 22%); } }
+:global(:root[data-theme="night"]) .tinted { background: hsl(var(--hue) 35% 22%); }
+@media (prefers-color-scheme: dark) {
+  :global(:root:not([data-theme])) .tinted { background: hsl(var(--hue) 35% 22%); }
+}
 .cardHead { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 8px; margin-bottom: 8px; }
 .cardHead h2 { font-size: 1.05rem; text-align: center; }
 .moveBtns { display: flex; gap: 2px; }
@@ -72,5 +75,13 @@
 .tbarFill { height: 100%; background: var(--accent); transition: width .4s linear; }
 .tbarFill.full { background: var(--ok); }
 .timerRow { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+
+/* settings */
+.setting { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; }
+.setting + .setting { border-top: 1px solid var(--line); }
+.setting .input { flex: none; width: auto; }
+.seg { display: flex; gap: 6px; flex: none; }
+.segBtn { display: inline-block; font: inherit; padding: 8px 14px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: inherit; cursor: pointer; }
+.segOn { background: var(--accent); border-color: var(--accent); color: #fff; }
 
 .footer { text-align: center; margin-top: 24px; }
