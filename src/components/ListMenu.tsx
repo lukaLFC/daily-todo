@@ -4,6 +4,7 @@ import { useState } from "react";
 import { deleteList } from "@/app/lists/actions";
 import styles from "@/styles/app.module.css";
 import { DotsIcon } from "./icons";
+import Link from "next/link";
 
 export default function ListMenu({ listId }: { listId: string }) {
   const [open, setOpen] = useState(false); // remembered value + a function to change it
@@ -18,6 +19,7 @@ export default function ListMenu({ listId }: { listId: string }) {
 
       {open && (
         <div className={styles.menuPop}>
+          <Link href={`/lists?manage=${listId}`} onClick={() => setOpen(false)}>Manage tasks</Link>
           <form
             action={deleteList}
             onSubmit={(e) => {

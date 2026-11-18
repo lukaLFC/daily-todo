@@ -53,3 +53,5 @@ export function dueLabel(task: Task, today: string): { text: string; due: boolea
 
 export const freqText = (n: number) =>
   n === 0 ? "one-time" : n === 1 ? "every day" : `every ${n} days`;
+
+export const HUES = Array.from({ length: 24 }, (_, i) => i * 15);

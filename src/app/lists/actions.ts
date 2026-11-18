@@ -108,3 +108,35 @@ export async function updateTimezone(timezone: string) {
   await supabase.from("profiles").update({ timezone }).eq("id", user.id);
   revalidatePath("/lists");
 }
+
+export async function updateTask(formData: FormData) {
+  const name = text(formData, "name");
+  if (!name) return;
+  const frequency = Math.max(0, Math.floor(Number(text(formData, "frequency")) || 0));
+  const timer = Math.min(1440, Math.max(0, Math.floor(Number(text(formData, "timer")) || 0)));
+  const lastDone = text(formData, "lastDone") || null; // "YYYY-MM-DD" or empty
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("tasks")
+    .update({ name, frequency_days: frequency, timer_minutes: timer, last_done: lastDone })
+    .eq("id", text(formData, "taskId"));
+  if (error) throw new Error(error.message);
+  revalidatePath("/lists");
+}
+
+export async function deleteTask(formData: FormData) {
+  const supabase = await createClient();
+  const { error } = await supabase.from("tasks").delete().eq("id", text(formData, "taskId"));
+  if (error) throw new Error(error.message);
+  revalidatePath("/lists");
+}
+
+export async function setListColor(formData: FormData) {
+  const raw = text(formData, "hue");
+  const hue = raw === "" ? null : Number(raw); // empty = no colour
+  const supabase = await createClient();
+  const { error } = await supabase.from("lists").update({ hue }).eq("id", text(formData, "listId"));
+  if (error) throw new Error(error.message);
+  revalidatePath("/lists");
+}

@@ -8,7 +8,14 @@ import type { List } from "@/lib/tasks";
 import styles from "@/styles/app.module.css";
 import { createList } from "./actions";
 
-export default async function ListsPage() {
+export default async function ListsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ manage?: string }>;
+}) {
+  // the part after "?manage=" in the URL (searchParams is a Promise in Next 16)
+  const { manage } = await searchParams;
+
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
@@ -30,7 +37,14 @@ export default async function ListsPage() {
 
       {lists.length === 0 && <p className={styles.empty}>No lists yet. Create your first one below.</p>}
       {lists.map((list, i) => (
-        <ListCard key={list.id} list={list} today={today} isFirst={i === 0} isLast={i === lists.length - 1} />
+        <ListCard
+          key={list.id}
+          list={list}
+          today={today}
+          isFirst={i === 0}
+          isLast={i === lists.length - 1}
+          managing={manage === list.id}
+        />
       ))}
 
       <form action={createList} className={`${styles.card} ${styles.addForm}`}>

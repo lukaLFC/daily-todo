@@ -1,13 +1,16 @@
+import Link from "next/link";
 import type { CSSProperties } from "react";
-import { addTask, moveList, toggleDone, toggleSelected } from "@/app/lists/actions";
+import {
+  addTask, deleteTask, moveList, setListColor, toggleDone, toggleSelected, updateTask,
+} from "@/app/lists/actions";
 import { shortDate } from "@/lib/dates";
-import { dueLabel, freqText, sortTasks, type List, type Task } from "@/lib/tasks";
+import { HUES, dueLabel, freqText, sortTasks, type List, type Task } from "@/lib/tasks";
 import styles from "@/styles/app.module.css";
 import ListMenu from "./ListMenu";
 
-type Props = { list: List; today: string; isFirst: boolean; isLast: boolean };
+type Props = { list: List; today: string; isFirst: boolean; isLast: boolean; managing: boolean };
 
-export default function ListCard({ list, today, isFirst, isLast }: Props) {
+export default function ListCard({ list, today, isFirst, isLast, managing }: Props) {
   const tinted = list.hue !== null;
   const tasks = sortTasks(list.tasks, today);
 
@@ -22,23 +25,85 @@ export default function ListCard({ list, today, isFirst, isLast }: Props) {
           <MoveButton listId={list.id} direction={1} disabled={isLast} />
         </div>
         <h2>{list.name}</h2>
-        <ListMenu listId={list.id} />
+        {managing ? (
+          <Link href="/lists" className={styles.saveLink} aria-label="Done managing">✓</Link>
+        ) : (
+          <ListMenu listId={list.id} />
+        )}
       </div>
 
-      {tasks.length === 0 && <p className={styles.meta}>No tasks yet.</p>}
-      {tasks.map((task) => (
-        <TaskRow key={task.id} task={task} today={today} />
-      ))}
+      {managing && <ColorPicker listId={list.id} current={list.hue} />}
 
-      {/* temporary: in round 2 this moves into "Manage tasks" */}
-      <form action={addTask} className={styles.addForm} style={{ marginTop: 10 }}>
-        <input type="hidden" name="listId" value={list.id} />
-        <input className={styles.input} name="name" placeholder="New task" required />
-        <input className={styles.numInput} name="frequency" type="number" min="0" defaultValue="0" title="Repeat every N days (0 = one-time)" />
-        <button className={styles.primary}>Add</button>
-      </form>
-      <p className={styles.hint}>Repeat every N days. Use 0 for a one-time task.</p>
+      {tasks.length === 0 && <p className={styles.meta}>No tasks yet.</p>}
+      {tasks.map((task) =>
+        managing ? (
+          <ManageRow key={task.id} task={task} />
+        ) : (
+          <TaskRow key={task.id} task={task} today={today} />
+        ),
+      )}
+
+      {managing && (
+        <>
+          <form action={addTask} className={styles.addForm} style={{ marginTop: 10 }}>
+            <input type="hidden" name="listId" value={list.id} />
+            <input className={styles.input} name="name" placeholder="New task" required />
+            <input className={styles.numInput} name="frequency" type="number" min="0" defaultValue="0" title="Repeat every N days (0 = one-time)" />
+            <button className={styles.primary}>Add</button>
+          </form>
+          <p className={styles.hint}>Repeat every N days. Use 0 for a one-time task.</p>
+        </>
+      )}
     </section>
+  );
+}
+
+function ColorPicker({ listId, current }: { listId: string; current: number | null }) {
+  return (
+    <form action={setListColor} className={styles.swatches}>
+      <input type="hidden" name="listId" value={listId} />
+      <button name="hue" value="" className={`${styles.swatch} ${styles.swatchNone} ${current === null ? styles.swatchOn : ""}`} aria-label="No colour" />
+      {HUES.map((h) => (
+        <button
+          key={h}
+          name="hue"
+          value={h}
+          className={`${styles.swatch} ${current === h ? styles.swatchOn : ""}`}
+          style={{ background: `hsl(${h} 70% 55%)` }}
+          aria-label={`Colour ${h}`}
+        />
+      ))}
+    </form>
+  );
+}
+
+function ManageRow({ task }: { task: Task }) {
+  return (
+    <div className={styles.manageRow}>
+      <form action={updateTask} className={styles.manageForm}>
+        <input type="hidden" name="taskId" value={task.id} />
+        <input className={styles.input} name="name" defaultValue={task.name} required aria-label="Task name" />
+        <label className={styles.field}>
+          every
+          <input className={styles.numInput} name="frequency" type="number" min="0" defaultValue={task.frequency_days} />
+          days
+        </label>
+        <label className={styles.field}>
+          last done
+          <input className={styles.input} name="lastDone" type="date" defaultValue={task.last_done ?? ""} />
+        </label>
+        <label className={styles.field}>
+          timer
+          <input className={styles.numInput} name="timer" type="number" min="0" max="1440" defaultValue={task.timer_minutes} />
+          min
+        </label>
+        <button className={styles.saveBtn} aria-label="Save task">✓</button>
+      </form>
+      <form action={deleteTask}>
+        <input type="hidden" name="taskId" value={task.id} />
+        <button className={`${styles.ghost} ${styles.danger}`} aria-label="Delete task">✕</button>
+      </form>
+    </div>
   );
 }
 
@@ -54,6 +119,7 @@ function MoveButton({ listId, direction, disabled }: { listId: string; direction
   );
 }
 
+// TaskRow stays exactly as it is today (copy it from your current file)
 function TaskRow({ task, today }: { task: Task; today: string }) {
   const label = dueLabel(task, today);
 
