@@ -113,7 +113,10 @@ export async function updateTask(formData: FormData) {
   const name = text(formData, "name");
   if (!name) return;
   const frequency = Math.max(0, Math.floor(Number(text(formData, "frequency")) || 0));
-  const timer = Math.min(1440, Math.max(0, Math.floor(Number(text(formData, "timer")) || 0)));
+  // checkbox off = no timer; on = the minutes box (default 30)
+  const timerOn = formData.get("timerOn") === "on";
+  const minutes = Math.floor(Number(text(formData, "timer")) || 0);
+  const timer = timerOn ? Math.min(1440, Math.max(1, minutes || 30)) : 0;
   const lastDone = text(formData, "lastDone") || null; // "YYYY-MM-DD" or empty
 
   const supabase = await createClient();
