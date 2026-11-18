@@ -30,8 +30,8 @@
 .menu { position: relative; justify-self: end; }
 .backdrop { position: fixed; inset: 0; z-index: 4; }
 .menuPop { position: absolute; right: 0; top: 100%; z-index: 5; min-width: 150px; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 4px; box-shadow: 0 6px 20px rgba(0,0,0,.15); }
-.menuPop button { width: 100%; text-align: left; border: none; background: transparent; padding: 8px 12px; font: inherit; cursor: pointer; border-radius: 8px; color: inherit; }
-.menuPop button:hover { background: var(--accent-soft); }
+.menuPop button, .menuPop a { display: block; width: 100%; text-align: left; border: none; background: transparent; padding: 8px 12px; font: inherit; cursor: pointer; border-radius: 8px; color: inherit; text-decoration: none; box-sizing: border-box; }
+.menuPop button:hover, .menuPop a:hover { background: var(--accent-soft); }
 .menuPop .danger { color: var(--danger); }
 
 /* tasks */
@@ -66,3 +66,5 @@
 .swatch { width: 30px; height: 30px; padding: 0; border-radius: 50%; border: 2px solid var(--line); cursor: pointer; }
 .swatchOn { border-color: var(--foreground); box-shadow: 0 0 0 2px var(--card); }
 .swatchNone { background: var(--card); font-size: .8rem; line-height: 1; color: var(--muted); }
+
+.footer { text-align: center; margin-top: 24px; }

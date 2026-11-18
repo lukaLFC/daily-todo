@@ -55,3 +55,13 @@ export const freqText = (n: number) =>
   n === 0 ? "one-time" : n === 1 ? "every day" : `every ${n} days`;
 
 export const HUES = Array.from({ length: 24 }, (_, i) => i * 15);
+
+// Daily-list order: longest overdue first. A done task is sorted as if it were
+// not done yet, so ticking or unticking never makes it jump.
+export function sortDaily(tasks: Task[], today: string): Task[] {
+  const key = (t: Task) =>
+    dueOn({ ...t, is_done: false, last_done: t.is_done ? t.prev_done : t.last_done }, today) ?? today;
+  return [...tasks].sort(
+    (a, b) => key(a).localeCompare(key(b)) || a.created_at.localeCompare(b.created_at),
+  );
+}

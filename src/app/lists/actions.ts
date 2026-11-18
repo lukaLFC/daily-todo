@@ -6,6 +6,12 @@ import { createClient } from "@/lib/supabase/server";
 
 const text = (formData: FormData, name: string) => String(formData.get(name) ?? "").trim();
 
+// both pages show the same tasks, so refresh both
+const refresh = () => {
+  revalidatePath("/");
+  revalidatePath("/lists");
+};
+
 export async function createList(formData: FormData) {
   const name = text(formData, "name");
   if (!name) return;
@@ -18,14 +24,14 @@ export async function createList(formData: FormData) {
   // owner_id is filled in by the database (default auth.uid())
   const { error } = await supabase.from("lists").insert({ name, position });
   if (error) throw new Error(error.message);
-  revalidatePath("/lists");
+  refresh();
 }
 
 export async function deleteList(formData: FormData) {
   const supabase = await createClient();
   const { error } = await supabase.from("lists").delete().eq("id", text(formData, "listId"));
   if (error) throw new Error(error.message);
-  revalidatePath("/lists");
+  refresh();
 }
 
 export async function moveList(formData: FormData) {
@@ -48,7 +54,7 @@ export async function moveList(formData: FormData) {
       l.position === i ? null : supabase.from("lists").update({ position: i }).eq("id", l.id)
     )
   );
-  revalidatePath("/lists");
+  refresh();
 }
 
 export async function addTask(formData: FormData) {
@@ -61,7 +67,7 @@ export async function addTask(formData: FormData) {
     .from("tasks")
     .insert({ list_id: text(formData, "listId"), name, frequency_days: frequency });
   if (error) throw new Error(error.message);
-  revalidatePath("/lists");
+  refresh();
 }
 
 export async function toggleDone(formData: FormData) {
@@ -84,7 +90,7 @@ export async function toggleDone(formData: FormData) {
       .update({ is_done: false, last_done: task.prev_done, prev_done: null })
       .eq("id", id);
   }
-  revalidatePath("/lists");
+  refresh();
 }
 
 export async function toggleSelected(formData: FormData) {
@@ -93,7 +99,7 @@ export async function toggleSelected(formData: FormData) {
   const { data: task } = await supabase.from("tasks").select("is_selected").eq("id", id).single();
   if (!task) return;
   await supabase.from("tasks").update({ is_selected: !task.is_selected }).eq("id", id);
-  revalidatePath("/lists");
+  refresh();
 }
 
 export async function updateTimezone(timezone: string) {
@@ -106,7 +112,7 @@ export async function updateTimezone(timezone: string) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return;
   await supabase.from("profiles").update({ timezone }).eq("id", user.id);
-  revalidatePath("/lists");
+  refresh();
 }
 
 export async function updateTask(formData: FormData) {
@@ -125,14 +131,14 @@ export async function updateTask(formData: FormData) {
     .update({ name, frequency_days: frequency, timer_minutes: timer, last_done: lastDone })
     .eq("id", text(formData, "taskId"));
   if (error) throw new Error(error.message);
-  revalidatePath("/lists");
+  refresh();
 }
 
 export async function deleteTask(formData: FormData) {
   const supabase = await createClient();
   const { error } = await supabase.from("tasks").delete().eq("id", text(formData, "taskId"));
   if (error) throw new Error(error.message);
-  revalidatePath("/lists");
+  refresh();
 }
 
 export async function setListColor(formData: FormData) {
@@ -141,5 +147,5 @@ export async function setListColor(formData: FormData) {
   const supabase = await createClient();
   const { error } = await supabase.from("lists").update({ hue }).eq("id", text(formData, "listId"));
   if (error) throw new Error(error.message);
-  revalidatePath("/lists");
+  refresh();
 }

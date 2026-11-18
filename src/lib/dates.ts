@@ -27,3 +27,10 @@ export function shortDate(date: string): string {
     day: "numeric", month: "short", timeZone: "UTC",
   });
 }
+
+// "2026-11-18" -> "Wednesday, 18 November"
+export function longDate(date: string): string {
+  return new Date(`${date}T12:00:00Z`).toLocaleDateString("en-GB", {
+    weekday: "long", day: "numeric", month: "long", timeZone: "UTC",
+  });
+}
