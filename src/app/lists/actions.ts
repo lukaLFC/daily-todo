@@ -98,7 +98,10 @@ export async function toggleSelected(formData: FormData) {
   const supabase = await createClient();
   const { data: task } = await supabase.from("tasks").select("is_selected").eq("id", id).single();
   if (!task) return;
-  await supabase.from("tasks").update({ is_selected: !task.is_selected }).eq("id", id);
+    await supabase
+    .from("tasks")
+    .update({ is_selected: !task.is_selected, ...(task.is_selected ? NO_TIMER : {}) })
+    .eq("id", id);
   refresh();
 }
 
@@ -128,7 +131,13 @@ export async function updateTask(formData: FormData) {
   const supabase = await createClient();
   const { error } = await supabase
     .from("tasks")
-    .update({ name, frequency_days: frequency, timer_minutes: timer, last_done: lastDone })
+        .update({
+      name,
+      frequency_days: frequency,
+      timer_minutes: timer,
+      last_done: lastDone,
+      ...(timer === 0 ? NO_TIMER : {}),
+    })
     .eq("id", text(formData, "taskId"));
   if (error) throw new Error(error.message);
   refresh();
@@ -147,5 +156,63 @@ export async function setListColor(formData: FormData) {
   const supabase = await createClient();
   const { error } = await supabase.from("lists").update({ hue }).eq("id", text(formData, "listId"));
   if (error) throw new Error(error.message);
+  refresh();
+}
+
+// ---------- stopwatch ----------
+const NO_TIMER = { timer_started_at: null, timer_elapsed_ms: 0, timer_fired: false };
+
+export async function timerStart(taskId: string) {
+  const supabase = await createClient();
+  await supabase
+    .from("tasks")
+    .update({ timer_started_at: new Date().toISOString() })
+    .eq("id", taskId)
+    .is("timer_started_at", null); // already running: do nothing
+  refresh();
+}
+
+export async function timerPause(taskId: string) {
+  const supabase = await createClient();
+  const { data: t } = await supabase
+    .from("tasks").select("timer_started_at, timer_elapsed_ms").eq("id", taskId).single();
+  if (!t?.timer_started_at) return;
+  const elapsed = Number(t.timer_elapsed_ms) + (Date.now() - Date.parse(t.timer_started_at));
+  await supabase
+    .from("tasks")
+    .update({ timer_started_at: null, timer_elapsed_ms: Math.round(elapsed) })
+    .eq("id", taskId);
+  refresh();
+}
+
+export async function timerReset(taskId: string) {
+  const supabase = await createClient();
+  await supabase.from("tasks").update(NO_TIMER).eq("id", taskId);
+  refresh();
+}
+
+// The stopwatch reached the task's time: mark it done (the stopwatch keeps running).
+// The server re-checks the time itself, so the browser can't cheat.
+export async function completeByTimer(taskId: string) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  const { data: task } = await supabase.from("tasks").select("*").eq("id", taskId).single();
+  if (!user || !task || task.timer_fired || task.timer_minutes <= 0) return;
+
+  const elapsed =
+    Number(task.timer_elapsed_ms) +
+    (task.timer_started_at ? Date.now() - Date.parse(task.timer_started_at) : 0);
+  if (elapsed < task.timer_minutes * 60000 - 2000) return; // 2 s tolerance
+
+  const changes: Record<string, unknown> = { timer_fired: true };
+  if (!task.is_done) {
+    const { data: profile } = await supabase
+      .from("profiles").select("timezone, day_ends").eq("id", user.id).single();
+    changes.is_done = true;
+    changes.prev_done = task.last_done;
+    changes.last_done = logicalToday(profile?.timezone ?? "UTC", profile?.day_ends ?? "05:00");
+    changes.done_by = user.id;
+  }
+  await supabase.from("tasks").update(changes).eq("id", taskId);
   refresh();
 }

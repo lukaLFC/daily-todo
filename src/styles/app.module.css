@@ -67,4 +67,10 @@
 .swatchOn { border-color: var(--foreground); box-shadow: 0 0 0 2px var(--card); }
 .swatchNone { background: var(--card); font-size: .8rem; line-height: 1; color: var(--muted); }
 
+/* stopwatch */
+.tbar { height: 6px; background: var(--line); border-radius: 99px; overflow: hidden; margin-top: 6px; }
+.tbarFill { height: 100%; background: var(--accent); transition: width .4s linear; }
+.tbarFill.full { background: var(--ok); }
+.timerRow { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+
 .footer { text-align: center; margin-top: 24px; }

@@ -1,13 +1,15 @@
 import { redirect } from "next/navigation";
 import type { CSSProperties } from "react";
 import { toggleDone, toggleSelected } from "@/app/lists/actions";
+import { signOut } from "@/app/login/actions";
 import Header from "@/components/Header";
+import Stopwatch from "@/components/Stopwatch";
 import TimezoneSync from "@/components/TimezoneSync";
 import { longDate, logicalToday } from "@/lib/dates";
+import { startNewDayIfNeeded } from "@/lib/rollover";
 import { createClient } from "@/lib/supabase/server";
 import { dueLabel, freqText, sortDaily, type List, type Task } from "@/lib/tasks";
 import styles from "@/styles/app.module.css";
-import { signOut } from "./login/actions";
 
 export default async function DailyPage() {
   const supabase = await createClient();
@@ -15,9 +17,13 @@ export default async function DailyPage() {
   if (!user) redirect("/login");
 
   const { data: profile } = await supabase
-    .from("profiles").select("timezone, day_ends").eq("id", user.id).single();
+    .from("profiles").select("timezone, day_ends, daily_date").eq("id", user.id).single();
   const timezone = profile?.timezone ?? "UTC";
   const today = logicalToday(timezone, profile?.day_ends ?? "05:00");
+
+  // a new day? delete finished one-time tasks, untick due repeating ones, reset stopwatches
+  await startNewDayIfNeeded(supabase, user.id, profile?.daily_date ?? null, today);
+  const serverNow = Date.now(); // the stopwatch counts with the server's clock
 
   const { data } = await supabase
     .from("lists").select("*, tasks(*)").order("position").order("created_at");
@@ -52,7 +58,7 @@ export default async function DailyPage() {
               <div />
             </div>
             {list.tasks.map((task) => (
-              <DailyTask key={task.id} task={task} today={today} />
+              <DailyTask key={task.id} task={task} today={today} serverNow={serverNow} />
             ))}
           </section>
         );
@@ -65,7 +71,7 @@ export default async function DailyPage() {
   );
 }
 
-function DailyTask({ task, today }: { task: Task; today: string }) {
+function DailyTask({ task, today, serverNow }: { task: Task; today: string; serverNow: number }) {
   const label = task.is_done ? { text: "done", due: false } : dueLabel(task, today);
 
   return (
@@ -84,6 +90,7 @@ function DailyTask({ task, today }: { task: Task; today: string }) {
         <b>{task.name}</b>
         <span className={`${styles.badge} ${label.due ? styles.badgeDue : ""}`}>{label.text}</span>
         <div className={styles.meta}>{freqText(task.frequency_days)}</div>
+        {task.timer_minutes > 0 && <Stopwatch task={task} serverNow={serverNow} />}
       </div>
 
       {/* removes it from the daily list (un-stars it); it stays in My lists */}

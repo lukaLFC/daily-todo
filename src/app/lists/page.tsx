@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import type { List } from "@/lib/tasks";
 import styles from "@/styles/app.module.css";
 import { createList } from "./actions";
+import { startNewDayIfNeeded } from "@/lib/rollover";
 
 export default async function ListsPage({
   searchParams,
@@ -21,9 +22,10 @@ export default async function ListsPage({
   if (!user) redirect("/login");
 
   const { data: profile } = await supabase
-    .from("profiles").select("timezone, day_ends").eq("id", user.id).single();
+    .from("profiles").select("timezone, day_ends, daily_date").eq("id", user.id).single();
   const timezone = profile?.timezone ?? "UTC";
   const today = logicalToday(timezone, profile?.day_ends ?? "05:00");
+  await startNewDayIfNeeded(supabase, user.id, profile?.daily_date ?? null, today);
 
   // every list, with its tasks nested inside (Supabase follows the list_id link)
   const { data } = await supabase
