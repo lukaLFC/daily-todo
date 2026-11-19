@@ -27,8 +27,12 @@ export default async function DailyPage() {
   const { data } = await supabase
     .from("lists").select("*, tasks(*)").order("position").order("created_at");
 
+  const allLists = (data ?? []) as List[];
+  const starred = allLists.flatMap((l) => l.tasks.filter((t) => t.is_selected));
+  const doneCount = starred.filter((t) => t.is_done).length;
+
   // keep only starred tasks, and only lists that still have some
-  const lists = ((data ?? []) as List[])
+  const lists = allLists
     .map((l) => ({ ...l, tasks: sortDaily(l.tasks.filter((t) => t.is_selected), today) }))
     .filter((l) => l.tasks.length > 0);
 
@@ -36,6 +40,15 @@ export default async function DailyPage() {
     <main className={styles.wrap}>
       <TimezoneSync current={timezone} />
       <Header page="daily" title="Daily to-do" subtitle={longDate(today)} />
+
+      {starred.length > 0 && (
+        <div className={styles.progress}>
+          <div className={styles.progressLabel}>{doneCount} of {starred.length} done</div>
+          <div className={styles.progressBar}>
+            <div className={styles.progressFill} style={{ width: `${(doneCount / starred.length) * 100}%` }} />
+          </div>
+        </div>
+      )}
 
       {lists.length === 0 && (
         <p className={styles.empty}>
@@ -69,6 +82,15 @@ export default async function DailyPage() {
 function DailyTask({ task, today, serverNow }: { task: Task; today: string; serverNow: number }) {
   const label = task.is_done ? { text: "done", due: false } : dueLabel(task, today);
 
+  // name, badge and "every day": shown the same with or without a timer
+  const info = (
+    <>
+      <b>{task.name}</b>
+      <span className={`${styles.badge} ${label.due ? styles.badgeDue : ""}`}>{label.text}</span>
+      <div className={styles.meta}>{freqText(task.frequency_days)}</div>
+    </>
+  );
+
   return (
     <div className={`${styles.task} ${task.is_done ? styles.done : ""}`}>
       <form action={toggleDone}>
@@ -81,12 +103,13 @@ function DailyTask({ task, today, serverNow }: { task: Task; today: string; serv
         </button>
       </form>
 
-      <div className={styles.name}>
-        <b>{task.name}</b>
-        <span className={`${styles.badge} ${label.due ? styles.badgeDue : ""}`}>{label.text}</span>
-        <div className={styles.meta}>{freqText(task.frequency_days)}</div>
-        {task.timer_minutes > 0 && <Stopwatch task={task} serverNow={serverNow} />}
-      </div>
+      {task.timer_minutes > 0 ? (
+        <Stopwatch task={task} serverNow={serverNow}>
+          {info}
+        </Stopwatch>
+      ) : (
+        <div className={styles.name}>{info}</div>
+      )}
 
       {/* removes it from the daily list (un-stars it); it stays in My lists */}
       <form action={toggleSelected}>

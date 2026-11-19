@@ -216,3 +216,31 @@ export async function completeByTimer(taskId: string) {
   await supabase.from("tasks").update(changes).eq("id", taskId);
   refresh();
 }
+
+// move the stopwatch by some minutes (negative = go back), e.g. after forgetting to stop it
+export async function timerAdjust(taskId: string, deltaMinutes: number) {
+  const delta = Math.max(-1440, Math.min(1440, deltaMinutes));
+  const supabase = await createClient();
+  const { data: t } = await supabase
+    .from("tasks")
+    .select("timer_minutes, timer_started_at, timer_elapsed_ms, timer_fired")
+    .eq("id", taskId)
+    .single();
+  if (!t) return;
+
+  const now = Date.now();
+  const elapsed = Number(t.timer_elapsed_ms) + (t.timer_started_at ? now - Date.parse(t.timer_started_at) : 0);
+  const next = Math.max(0, Math.round(elapsed + delta * 60000));
+
+  await supabase
+    .from("tasks")
+    .update({
+      timer_elapsed_ms: next,
+      // still running: restart the clock from now with the new total
+      timer_started_at: t.timer_started_at ? new Date(now).toISOString() : null,
+      // went back under the goal: it may finish again later
+      timer_fired: next >= t.timer_minutes * 60000 ? t.timer_fired : false,
+    })
+    .eq("id", taskId);
+  refresh();
+}

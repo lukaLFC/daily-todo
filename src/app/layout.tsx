@@ -29,11 +29,10 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
 // the browser's top bar and bottom bar take the colour of the page background
 export async function generateViewport(): Promise<Viewport> {
   const saved = (await cookies()).get("theme")?.value;
-  if (saved === "night") return { themeColor: "#16181d", viewportFit: "cover"};
-  if (saved === "day") return { themeColor: "#f6f5f1", viewportFit: "cover" };
+  if (saved === "night") return { themeColor: "#16181d" };
+  if (saved === "day") return { themeColor: "#f6f5f1" };
   // no choice made yet: follow the phone's own setting
   return {
-    viewportFit: "cover",
     themeColor: [
       { media: "(prefers-color-scheme: light)", color: "#f6f5f1" },
       { media: "(prefers-color-scheme: dark)", color: "#16181d" },
