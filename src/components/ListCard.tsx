@@ -1,15 +1,31 @@
+"use client";
+
 import Link from "next/link";
 import type { CSSProperties } from "react";
-import { addTask, deleteTask, moveList, setListColor, toggleDone, toggleSelected } from "@/app/lists/actions";
+import { addTask } from "@/app/lists/actions";
 import { shortDate } from "@/lib/dates";
 import { HUES, dueLabel, freqText, sortTasks, type List, type Task } from "@/lib/tasks";
 import styles from "@/styles/app.module.css";
 import ListMenu from "./ListMenu";
 import ManageTaskForm from "./ManageTaskForm";
 
-type Props = { list: List; today: string; isFirst: boolean; isLast: boolean; managing: boolean };
+type Props = {
+  list: List;
+  today: string;
+  isFirst: boolean;
+  isLast: boolean;
+  managing: boolean;
+  onToggleDone: (taskId: string) => void;
+  onToggleStar: (taskId: string) => void;
+  onDeleteTask: (taskId: string) => void;
+  onMove: (direction: 1 | -1) => void;
+  onColor: (hue: number | null) => void;
+};
 
-export default function ListCard({ list, today, isFirst, isLast, managing }: Props) {
+export default function ListCard({
+  list, today, isFirst, isLast, managing,
+  onToggleDone, onToggleStar, onDeleteTask, onMove, onColor,
+}: Props) {
   const tinted = list.hue !== null;
   const tasks = sortTasks(list.tasks, today);
 
@@ -20,8 +36,8 @@ export default function ListCard({ list, today, isFirst, isLast, managing }: Pro
     >
       <div className={styles.cardHead}>
         <div className={styles.moveBtns}>
-          <MoveButton listId={list.id} direction={-1} disabled={isFirst} />
-          <MoveButton listId={list.id} direction={1} disabled={isLast} />
+          <button type="button" className={styles.ghost} disabled={isFirst} onClick={() => onMove(-1)} aria-label="Move up">▲</button>
+          <button type="button" className={styles.ghost} disabled={isLast} onClick={() => onMove(1)} aria-label="Move down">▼</button>
         </div>
         <h2>{list.name}</h2>
         {managing ? (
@@ -31,14 +47,20 @@ export default function ListCard({ list, today, isFirst, isLast, managing }: Pro
         )}
       </div>
 
-      {managing && <ColorPicker listId={list.id} current={list.hue} />}
+      {managing && <ColorPicker current={list.hue} onColor={onColor} />}
 
       {tasks.length === 0 && <p className={styles.meta}>No tasks yet.</p>}
       {tasks.map((task) =>
         managing ? (
-          <ManageRow key={task.id} task={task} today={today} />
+          <ManageRow key={task.id} task={task} today={today} onDelete={() => onDeleteTask(task.id)} />
         ) : (
-          <TaskRow key={task.id} task={task} today={today} />
+          <TaskRow
+            key={task.id}
+            task={task}
+            today={today}
+            onToggleDone={() => onToggleDone(task.id)}
+            onToggleStar={() => onToggleStar(task.id)}
+          />
         ),
       )}
 
@@ -57,24 +79,30 @@ export default function ListCard({ list, today, isFirst, isLast, managing }: Pro
   );
 }
 
-function ColorPicker({ listId, current }: { listId: string; current: number | null }) {
+function ColorPicker({ current, onColor }: { current: number | null; onColor: (hue: number | null) => void }) {
   return (
     <>
       <div className={styles.colorLabel}>List colour</div>
-      <form action={setListColor} className={styles.swatches}>
-        <input type="hidden" name="listId" value={listId} />
-        <button name="hue" value="" className={`${styles.swatch} ${styles.swatchNone} ${current === null ? styles.swatchOn : ""}`} aria-label="No colour">✕</button>
+      <div className={styles.swatches}>
+        <button
+          type="button"
+          className={`${styles.swatch} ${styles.swatchNone} ${current === null ? styles.swatchOn : ""}`}
+          onClick={() => onColor(null)}
+          aria-label="No colour"
+        >
+          ✕
+        </button>
         {HUES.map((h) => (
           <button
             key={h}
-            name="hue"
-            value={h}
+            type="button"
             className={`${styles.swatch} ${current === h ? styles.swatchOn : ""}`}
             style={{ background: `hsl(${h} 70% 78%)` }}
+            onClick={() => onColor(h)}
             aria-label={`Colour ${h}`}
           />
         ))}
-      </form>
+      </div>
     </>
   );
 }
@@ -82,7 +110,7 @@ function ColorPicker({ listId, current }: { listId: string; current: number | nu
 const fmtMin = (m: number) =>
   m < 60 ? `${m} min` : m % 60 === 0 ? `${m / 60} h` : `${Math.floor(m / 60)} h ${m % 60} min`;
 
-function ManageRow({ task, today }: { task: Task; today: string }) {
+function ManageRow({ task, today, onDelete }: { task: Task; today: string; onDelete: () => void }) {
   const label = dueLabel(task, today);
   return (
     <div className={styles.manageRow}>
@@ -93,40 +121,26 @@ function ManageRow({ task, today }: { task: Task; today: string }) {
           <span className={`${styles.badge} ${label.due ? styles.badgeDue : ""}`}>{label.text}</span>
         </div>
       </ManageTaskForm>
-      <form action={deleteTask}>
-        <input type="hidden" name="taskId" value={task.id} />
-        <button className={styles.ghost} aria-label="Delete task">✕</button>
-      </form>
+      <button type="button" className={styles.ghost} onClick={onDelete} aria-label="Delete task">✕</button>
     </div>
   );
 }
 
-function MoveButton({ listId, direction, disabled }: { listId: string; direction: 1 | -1; disabled: boolean }) {
-  return (
-    <form action={moveList}>
-      <input type="hidden" name="listId" value={listId} />
-      <input type="hidden" name="direction" value={direction} />
-      <button className={styles.ghost} disabled={disabled} aria-label={direction === -1 ? "Move up" : "Move down"}>
-        {direction === -1 ? "▲" : "▼"}
-      </button>
-    </form>
-  );
-}
-
-function TaskRow({ task, today }: { task: Task; today: string }) {
+function TaskRow({
+  task, today, onToggleDone, onToggleStar,
+}: { task: Task; today: string; onToggleDone: () => void; onToggleStar: () => void }) {
   const label = dueLabel(task, today);
 
   return (
     <div className={`${styles.task} ${task.is_done ? styles.done : ""}`}>
-      <form action={toggleDone}>
-        <input type="hidden" name="taskId" value={task.id} />
-        <button
-          className={`${styles.check} ${task.is_done ? styles.checked : ""}`}
-          aria-label={task.is_done ? "Mark as not done" : "Mark as done"}
-        >
-          {task.is_done ? "✓" : ""}
-        </button>
-      </form>
+      <button
+        type="button"
+        className={`${styles.check} ${task.is_done ? styles.checked : ""}`}
+        onClick={onToggleDone}
+        aria-label={task.is_done ? "Mark as not done" : "Mark as done"}
+      >
+        {task.is_done ? "✓" : ""}
+      </button>
 
       <div className={styles.name}>
         <b>{task.name}</b>
@@ -137,15 +151,14 @@ function TaskRow({ task, today }: { task: Task; today: string }) {
         </div>
       </div>
 
-      <form action={toggleSelected}>
-        <input type="hidden" name="taskId" value={task.id} />
-        <button
-          className={`${styles.ghost} ${styles.star} ${task.is_selected ? styles.starOn : ""}`}
-          aria-label="Show in daily list"
-        >
-          {task.is_selected ? "★" : "☆"}
-        </button>
-      </form>
+      <button
+        type="button"
+        className={`${styles.ghost} ${styles.star} ${task.is_selected ? styles.starOn : ""}`}
+        onClick={onToggleStar}
+        aria-label="Show in daily list"
+      >
+        {task.is_selected ? "★" : "☆"}
+      </button>
     </div>
   );
 }

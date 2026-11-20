@@ -1,12 +1,12 @@
 import Header from "@/components/Header";
-import ListCard from "@/components/ListCard";
+import ListsBoard from "@/components/ListsBoard";
 import TimezoneSync from "@/components/TimezoneSync";
 import { logicalToday } from "@/lib/dates";
+import { startNewDayIfNeeded } from "@/lib/rollover";
 import { getSupabase, getUser } from "@/lib/session";
 import type { List } from "@/lib/tasks";
 import styles from "@/styles/app.module.css";
 import { createList } from "./actions";
-import { startNewDayIfNeeded } from "@/lib/rollover";
 
 export default async function ListsPage({
   searchParams,
@@ -32,7 +32,6 @@ export default async function ListsPage({
   // a new day (rare): the cleanup changes tasks, so load the lists again afterwards
   const newDay = await startNewDayIfNeeded(supabase, user.id, profile?.daily_date ?? null, today);
   const data = newDay ? (await listsQuery()).data : first.data;
-  const serverNow = Date.now();
   const lists = (data ?? []) as List[];
 
   return (
@@ -40,17 +39,7 @@ export default async function ListsPage({
       <TimezoneSync current={timezone} />
       <Header page="lists" title="My lists" subtitle="Add tasks and decide what repeats" />
 
-      {lists.length === 0 && <p className={styles.empty}>No lists yet. Create your first one below.</p>}
-      {lists.map((list, i) => (
-        <ListCard
-          key={list.id}
-          list={list}
-          today={today}
-          isFirst={i === 0}
-          isLast={i === lists.length - 1}
-          managing={manage === list.id}
-        />
-      ))}
+      <ListsBoard lists={lists} today={today} managingId={manage} />
 
       <form action={createList} className={`${styles.card} ${styles.addForm}`}>
         <input className={styles.input} name="name" placeholder="New list (e.g. Chores)" required />
