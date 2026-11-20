@@ -99,3 +99,8 @@
 .segOn { background: var(--accent); border-color: var(--accent); color: #fff; }
 
 .footer { text-align: center; margin-top: 24px; }
+
+/* profile */
+.profile { display: flex; align-items: center; gap: 16px; padding: 4px 0 12px; }
+.avatar { width: 80px; height: 80px; flex: none; border-radius: 50%; object-fit: cover; display: inline-flex; align-items: center; justify-content: center; background: var(--accent-soft); color: var(--accent); font-size: 2rem; font-weight: 600; }
+.avatarActions { display: flex; flex-wrap: wrap; gap: 8px; }

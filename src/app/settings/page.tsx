@@ -6,7 +6,9 @@ import ImportButton from "@/components/ImportButton";
 import { signOut } from "@/app/login/actions";
 import { createClient } from "@/lib/supabase/server";
 import styles from "@/styles/app.module.css";
-import { setDayEnds, setTheme } from "./actions";
+import { setDayEnds, setTheme, updateDisplayName } from "./actions";
+import { BackIcon } from "@/components/icons";
+import AvatarPicker from "@/components/AvatarPicker";
 
 export default async function SettingsPage() {
   const supabase = await createClient();
@@ -14,7 +16,7 @@ export default async function SettingsPage() {
   if (!user) redirect("/login");
 
   const { data: profile } = await supabase
-    .from("profiles").select("theme, day_ends").eq("id", user.id).single();
+    .from("profiles").select("theme, day_ends, display_name, avatar_url").eq("id", user.id).single();
   const saved = (await cookies()).get("theme")?.value;
   const theme = saved === "day" || saved === "night" ? saved : (profile?.theme ?? "day");
   const dayEnds = String(profile?.day_ends ?? "05:00").slice(0, 5); // "05:00:00" -> "05:00"
@@ -23,7 +25,7 @@ export default async function SettingsPage() {
     <main className={styles.wrap}>
       <header className={styles.header}>
         <div>
-          <Link href="/" className={styles.iconBtn} aria-label="Back to daily list">←</Link>
+          <Link href="/" className={styles.iconBtn} aria-label="Back to daily list"><BackIcon /></Link>
         </div>
         <div className={styles.title}>
           <h1>Settings</h1>
@@ -31,6 +33,24 @@ export default async function SettingsPage() {
         </div>
         <div />
       </header>
+
+      <section className={styles.card}>
+        <div className={styles.profile}>
+          <AvatarPicker
+            avatarUrl={profile?.avatar_url ?? null}
+            initial={(profile?.display_name || user.email || "?").charAt(0).toUpperCase()}
+          />
+        </div>
+        <div className={styles.setting}>
+          <div>
+            <b>Display name</b>
+            <div className={styles.meta}>Shown to people you share lists with</div>
+          </div>
+          <AutoSaveForm action={updateDisplayName}>
+            <input className={styles.input} name="displayName" defaultValue={profile?.display_name ?? ""} maxLength={60} required />
+          </AutoSaveForm>
+        </div>
+      </section>
 
       <section className={styles.card}>
         <div className={styles.setting}>

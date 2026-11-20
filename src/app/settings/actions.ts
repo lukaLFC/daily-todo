@@ -105,3 +105,45 @@ export async function importBackup(json: string): Promise<{ ok: boolean; message
   refreshAll();
   return { ok: true, message: `Import finished: ${listRows.length} list(s), ${taskRows.length} task(s).` };
 }
+
+export async function updateDisplayName(formData: FormData) {
+  const name = text(formData, "displayName").slice(0, 60);
+  if (!name) return;
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
+  await supabase.from("profiles").update({ display_name: name }).eq("id", user.id);
+  refreshAll();
+}
+
+// the browser already shrank the photo to a small square JPEG
+export async function uploadAvatar(formData: FormData): Promise<{ ok: boolean; message: string }> {
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) return { ok: false, message: "No file received." };
+  if (file.type !== "image/jpeg" || file.size > 1_000_000) return { ok: false, message: "The photo must be a JPEG under 1 MB." };
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { ok: false, message: "You are signed out." };
+
+  const path = `${user.id}/avatar.jpg`; // one photo per user, replaced each time
+  const { error } = await supabase.storage
+    .from("avatars")
+    .upload(path, file, { upsert: true, contentType: "image/jpeg" });
+  if (error) return { ok: false, message: `Upload failed: ${error.message}` };
+
+  const { data } = supabase.storage.from("avatars").getPublicUrl(path);
+  // ?v=... makes browsers fetch the new picture instead of showing the cached one
+  await supabase.from("profiles").update({ avatar_url: `${data.publicUrl}?v=${Date.now()}` }).eq("id", user.id);
+  refreshAll();
+  return { ok: true, message: "Photo updated." };
+}
+
+export async function removeAvatar() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
+  await supabase.storage.from("avatars").remove([`${user.id}/avatar.jpg`]);
+  await supabase.from("profiles").update({ avatar_url: null }).eq("id", user.id);
+  refreshAll();
+}
