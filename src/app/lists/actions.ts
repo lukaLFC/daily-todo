@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { logicalToday } from "@/lib/dates";
+import { getUser } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 
 const text = (formData: FormData, name: string) => String(formData.get(name) ?? "").trim();
@@ -11,6 +12,8 @@ const refresh = () => {
   revalidatePath("/");
   revalidatePath("/lists");
 };
+
+const NO_TIMER = { timer_started_at: null, timer_elapsed_ms: 0, timer_fired: false };
 
 export async function createList(formData: FormData) {
   const name = text(formData, "name");
@@ -51,8 +54,8 @@ export async function moveList(formData: FormData) {
   // renumber 0, 1, 2 ... and save only what changed
   await Promise.all(
     lists.map((l, i) =>
-      l.position === i ? null : supabase.from("lists").update({ position: i }).eq("id", l.id)
-    )
+      l.position === i ? null : supabase.from("lists").update({ position: i }).eq("id", l.id),
+    ),
   );
   refresh();
 }
@@ -73,20 +76,25 @@ export async function addTask(formData: FormData) {
 export async function toggleDone(formData: FormData) {
   const id = text(formData, "taskId");
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  const { data: task } = await supabase.from("tasks").select("*").eq("id", id).single();
-  if (!user || !task) return;
+  const user = await getUser();
+
+  // the task and the profile don't depend on each other: ask for both at once
+  const [{ data: task }, { data: profile }] = await Promise.all([
+    supabase.from("tasks").select("*").eq("id", id).single(),
+    supabase.from("profiles").select("timezone, day_ends").eq("id", user.id).single(),
+  ]);
+  if (!task) return;
 
   if (!task.is_done) {
     // checking: remember the old date so un-checking can restore it
-    const { data: profile } = await supabase
-      .from("profiles").select("timezone, day_ends").eq("id", user.id).single();
     const today = logicalToday(profile?.timezone ?? "UTC", profile?.day_ends ?? "05:00");
-    await supabase.from("tasks")
+    await supabase
+      .from("tasks")
       .update({ is_done: true, prev_done: task.last_done, last_done: today, done_by: user.id })
       .eq("id", id);
   } else {
-    await supabase.from("tasks")
+    await supabase
+      .from("tasks")
       .update({ is_done: false, last_done: task.prev_done, prev_done: null })
       .eq("id", id);
   }
@@ -98,7 +106,7 @@ export async function toggleSelected(formData: FormData) {
   const supabase = await createClient();
   const { data: task } = await supabase.from("tasks").select("is_selected").eq("id", id).single();
   if (!task) return;
-    await supabase
+  await supabase
     .from("tasks")
     .update({ is_selected: !task.is_selected, ...(task.is_selected ? NO_TIMER : {}) })
     .eq("id", id);
@@ -112,8 +120,7 @@ export async function updateTimezone(timezone: string) {
     return;
   }
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return;
+  const user = await getUser();
   await supabase.from("profiles").update({ timezone }).eq("id", user.id);
   refresh();
 }
@@ -131,7 +138,7 @@ export async function updateTask(formData: FormData) {
   const supabase = await createClient();
   const { error } = await supabase
     .from("tasks")
-        .update({
+    .update({
       name,
       frequency_days: frequency,
       timer_minutes: timer,
@@ -160,8 +167,6 @@ export async function setListColor(formData: FormData) {
 }
 
 // ---------- stopwatch ----------
-const NO_TIMER = { timer_started_at: null, timer_elapsed_ms: 0, timer_fired: false };
-
 export async function timerStart(taskId: string) {
   const supabase = await createClient();
   await supabase
@@ -195,9 +200,12 @@ export async function timerReset(taskId: string) {
 // The server re-checks the time itself, so the browser can't cheat.
 export async function completeByTimer(taskId: string) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  const { data: task } = await supabase.from("tasks").select("*").eq("id", taskId).single();
-  if (!user || !task || task.timer_fired || task.timer_minutes <= 0) return;
+  const user = await getUser();
+  const [{ data: task }, { data: profile }] = await Promise.all([
+    supabase.from("tasks").select("*").eq("id", taskId).single(),
+    supabase.from("profiles").select("timezone, day_ends").eq("id", user.id).single(),
+  ]);
+  if (!task || task.timer_fired || task.timer_minutes <= 0) return;
 
   const elapsed =
     Number(task.timer_elapsed_ms) +
@@ -206,8 +214,6 @@ export async function completeByTimer(taskId: string) {
 
   const changes: Record<string, unknown> = { timer_fired: true };
   if (!task.is_done) {
-    const { data: profile } = await supabase
-      .from("profiles").select("timezone, day_ends").eq("id", user.id).single();
     changes.is_done = true;
     changes.prev_done = task.last_done;
     changes.last_done = logicalToday(profile?.timezone ?? "UTC", profile?.day_ends ?? "05:00");

@@ -1,20 +1,17 @@
 import Link from "next/link";
 import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
 import AutoSaveForm from "@/components/AutoSaveForm";
 import ImportButton from "@/components/ImportButton";
 import { signOut } from "@/app/login/actions";
-import { createClient } from "@/lib/supabase/server";
+import { getSupabase, getUser } from "@/lib/session";
 import styles from "@/styles/app.module.css";
 import { setDayEnds, setTheme, updateDisplayName } from "./actions";
 import { BackIcon } from "@/components/icons";
 import AvatarPicker from "@/components/AvatarPicker";
 
 export default async function SettingsPage() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
-
+  const supabase = await getSupabase();
+  const user = await getUser();
   const { data: profile } = await supabase
     .from("profiles").select("theme, day_ends, display_name, avatar_url").eq("id", user.id).single();
   const saved = (await cookies()).get("theme")?.value;

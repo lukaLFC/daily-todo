@@ -1,9 +1,8 @@
-import { redirect } from "next/navigation";
 import Header from "@/components/Header";
 import ListCard from "@/components/ListCard";
 import TimezoneSync from "@/components/TimezoneSync";
 import { logicalToday } from "@/lib/dates";
-import { createClient } from "@/lib/supabase/server";
+import { getSupabase, getUser } from "@/lib/session";
 import type { List } from "@/lib/tasks";
 import styles from "@/styles/app.module.css";
 import { createList } from "./actions";
@@ -17,19 +16,23 @@ export default async function ListsPage({
   // the part after "?manage=" in the URL (searchParams is a Promise in Next 16)
   const { manage } = await searchParams;
 
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  const supabase = await getSupabase();
+  const user = await getUser();
 
-  const { data: profile } = await supabase
-    .from("profiles").select("timezone, day_ends, daily_date").eq("id", user.id).single();
+  // profile and lists don't depend on each other: ask for both at once
+  const listsQuery = () =>
+    supabase.from("lists").select("*, tasks(*)").order("position").order("created_at");
+  const [{ data: profile }, first] = await Promise.all([
+    supabase.from("profiles").select("timezone, day_ends, daily_date").eq("id", user.id).single(),
+    listsQuery(),
+  ]);
   const timezone = profile?.timezone ?? "UTC";
   const today = logicalToday(timezone, profile?.day_ends ?? "05:00");
-  await startNewDayIfNeeded(supabase, user.id, profile?.daily_date ?? null, today);
 
-  // every list, with its tasks nested inside (Supabase follows the list_id link)
-  const { data } = await supabase
-    .from("lists").select("*, tasks(*)").order("position").order("created_at");
+  // a new day (rare): the cleanup changes tasks, so load the lists again afterwards
+  const newDay = await startNewDayIfNeeded(supabase, user.id, profile?.daily_date ?? null, today);
+  const data = newDay ? (await listsQuery()).data : first.data;
+  const serverNow = Date.now();
   const lists = (data ?? []) as List[];
 
   return (

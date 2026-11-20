@@ -12,8 +12,8 @@ export async function startNewDayIfNeeded(
   userId: string,
   dailyDate: string | null,
   today: string,
-) {
-  if (dailyDate && dailyDate >= today) return; // same day: nothing to do
+): Promise<boolean>  {
+  if (dailyDate && dailyDate >= today) return false; // same day: nothing to do
 
   await supabase.from("tasks").delete().eq("frequency_days", 0).eq("is_done", true);
 
@@ -32,4 +32,5 @@ export async function startNewDayIfNeeded(
     .or("timer_started_at.not.is.null,timer_elapsed_ms.gt.0,timer_fired.eq.true");
 
   await supabase.from("profiles").update({ daily_date: today }).eq("id", userId);
+  return true;
 }
