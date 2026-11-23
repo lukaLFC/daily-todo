@@ -5,9 +5,10 @@ import ImportButton from "@/components/ImportButton";
 import { signOut } from "@/app/login/actions";
 import { getSupabase, getUser } from "@/lib/session";
 import styles from "@/styles/app.module.css";
-import { setDayEnds, setTheme, updateDisplayName } from "./actions";
+import { setDayEnds, updateDisplayName } from "./actions";
 import { BackIcon } from "@/components/icons";
 import AvatarPicker from "@/components/AvatarPicker";
+import ThemeSwitch from "@/components/ThemeSwitch";
 
 export default async function SettingsPage() {
   const supabase = await getSupabase();
@@ -55,10 +56,7 @@ export default async function SettingsPage() {
             <b>Theme</b>
             <div className={styles.meta}>Light or dark look</div>
           </div>
-          <form action={setTheme} className={styles.seg}>
-            <button name="theme" value="day" className={`${styles.segBtn} ${theme === "day" ? styles.segOn : ""}`}>☀ Day</button>
-            <button name="theme" value="night" className={`${styles.segBtn} ${theme === "night" ? styles.segOn : ""}`}>☾ Night</button>
-          </form>
+          <ThemeSwitch theme={theme} />
         </div>
 
         <div className={styles.setting}>

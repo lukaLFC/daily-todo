@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useOptimistic, useState, useTransition, type ReactNode } from "react";
 import { completeByTimer, timerAdjust, timerPause, timerReset, timerStart } from "@/app/lists/actions";
 import type { Task } from "@/lib/tasks";
 import styles from "@/styles/app.module.css";
@@ -21,30 +21,78 @@ const EditIcon = () => <svg {...svg} width={16} height={16}><path d="M12 20h9" /
 
 const STEPS = [-10, -5, -1, 1, 5, 10];
 
+// the stopwatch as two numbers: when it was last started (null = paused) and the time counted before that
+type Clock = { startedAt: number | null; baseMs: number };
+type TimerAction = { at: number } & (
+  | { type: "start" }
+  | { type: "pause" }
+  | { type: "reset" }
+  | { type: "adjust"; minutes: number }
+);
+
+const elapsedOf = (c: Clock, now: number) =>
+  c.baseMs + (c.startedAt !== null ? Math.max(0, now - c.startedAt) : 0);
+
+// the same rules the server uses, applied to the copy on screen
+function reduce(c: Clock, a: TimerAction): Clock {
+  switch (a.type) {
+    case "start":
+      return c.startedAt !== null ? c : { ...c, startedAt: a.at };
+    case "pause":
+      return c.startedAt === null ? c : { startedAt: null, baseMs: elapsedOf(c, a.at) };
+    case "reset":
+      return { startedAt: null, baseMs: 0 };
+    case "adjust":
+      return {
+        startedAt: c.startedAt !== null ? a.at : null,
+        baseMs: Math.max(0, elapsedOf(c, a.at) + a.minutes * 60000),
+      };
+  }
+}
+
 type Props = { task: Task; serverNow: number; children: ReactNode };
 
 export default function Stopwatch({ task, serverNow, children }: Props) {
   const [now, setNow] = useState(serverNow);
+  const [offset] = useState(() => serverNow - Date.now()); // server clock minus this computer's clock
   const [adjusting, setAdjusting] = useState(false);
+  const [, startTransition] = useTransition();
+
+  // what the database says
+  const real = useMemo<Clock>(
+    () => ({ startedAt: task.timer_started_at ? Date.parse(task.timer_started_at) : null, baseMs: task.timer_elapsed_ms }),
+    [task.timer_started_at, task.timer_elapsed_ms],
+  );
+  // what the screen shows right now (changed instantly by apply())
+  const [shown, apply] = useOptimistic(real, reduce);
 
   const goal = task.timer_minutes * 60000;
-  const startedAt = task.timer_started_at ? Date.parse(task.timer_started_at) : null;
-  const running = startedAt !== null;
-  const elapsed = task.timer_elapsed_ms + (startedAt ? Math.max(0, now - startedAt) : 0);
+  const running = shown.startedAt !== null;
+  const elapsed = elapsedOf(shown, now);
   const reached = elapsed >= goal;
+  const realReached = elapsedOf(real, now) >= goal;
 
   // tick once a second while running, using the server's clock (not the computer's)
   useEffect(() => {
     if (!running) return;
-    const offset = serverNow - Date.now();
     const id = setInterval(() => setNow(Date.now() + offset), 1000);
     return () => clearInterval(id);
-  }, [running, serverNow]);
+  }, [running, offset]);
 
-  // time is up: ask the server to mark the task done (once)
+  // time is up (according to the database): ask the server to mark the task done, once
   useEffect(() => {
-    if (reached && !task.timer_fired) completeByTimer(task.id);
-  }, [reached, task.timer_fired, task.id]);
+    if (realReached && !task.timer_fired) completeByTimer(task.id);
+  }, [realReached, task.timer_fired, task.id]);
+
+  // 1) change the screen now  2) tell the server in the background
+  function act(action: { type: "start" | "pause" | "reset" } | { type: "adjust"; minutes: number }, serverCall: () => Promise<void>) {
+    const at = Date.now() + offset;
+    setNow(at);
+    startTransition(async () => {
+      apply({ ...action, at });
+      await serverCall();
+    });
+  }
 
   return (
     <>
@@ -77,7 +125,12 @@ export default function Stopwatch({ task, serverNow, children }: Props) {
         {adjusting && (
           <div className={styles.adjust}>
             {STEPS.map((m) => (
-              <button key={m} type="button" className={styles.chip} onClick={() => timerAdjust(task.id, m)}>
+              <button
+                key={m}
+                type="button"
+                className={styles.chip}
+                onClick={() => act({ type: "adjust", minutes: m }, () => timerAdjust(task.id, m))}
+              >
                 {m > 0 ? `+${m}` : m} min
               </button>
             ))}
@@ -88,14 +141,23 @@ export default function Stopwatch({ task, serverNow, children }: Props) {
       {/* sits between the name and the ✕, centred vertically in the row */}
       <div className={styles.timerBtns}>
         {!running && elapsed > 0 && (
-          <button type="button" className={styles.timerBtn} onClick={() => timerReset(task.id)} aria-label="Reset stopwatch">
+          <button
+            type="button"
+            className={styles.timerBtn}
+            onClick={() => act({ type: "reset" }, () => timerReset(task.id))}
+            aria-label="Reset stopwatch"
+          >
             <ResetIcon />
           </button>
         )}
         <button
           type="button"
           className={styles.timerBtn}
-          onClick={() => (running ? timerPause(task.id) : timerStart(task.id))}
+          onClick={() =>
+            running
+              ? act({ type: "pause" }, () => timerPause(task.id))
+              : act({ type: "start" }, () => timerStart(task.id))
+          }
           aria-label={running ? "Pause" : "Start"}
         >
           {running ? <PauseIcon /> : <PlayIcon />}

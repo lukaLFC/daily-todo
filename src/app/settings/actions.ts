@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
+import { getUser } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 
 const text = (formData: FormData, name: string) => String(formData.get(name) ?? "").trim();
@@ -10,8 +11,7 @@ const refreshAll = () => revalidatePath("/", "layout");
 export async function setTheme(formData: FormData) {
   const theme = text(formData, "theme") === "night" ? "night" : "day";
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return;
+  const user = await getUser();
   await supabase.from("profiles").update({ theme }).eq("id", user.id);
   (await cookies()).set("theme", theme, { path: "/", maxAge: 60 * 60 * 24 * 365, sameSite: "lax" });
   refreshAll();
@@ -21,8 +21,7 @@ export async function setDayEnds(formData: FormData) {
   const value = text(formData, "dayEnds");
   if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(value)) return;
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return;
+  const user = await getUser();
   await supabase.from("profiles").update({ day_ends: value }).eq("id", user.id);
   refreshAll();
 }
@@ -45,8 +44,7 @@ export async function importBackup(json: string): Promise<{ ok: boolean; message
   }
 
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { ok: false, message: "You are signed out." };
+  const user = await getUser();
 
   const listRows: { id: string; name: string; hue: number | null; position: number }[] = [];
   const taskRows: Record<string, unknown>[] = [];
@@ -110,8 +108,7 @@ export async function updateDisplayName(formData: FormData) {
   const name = text(formData, "displayName").slice(0, 60);
   if (!name) return;
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return;
+  const user = await getUser();
   await supabase.from("profiles").update({ display_name: name }).eq("id", user.id);
   refreshAll();
 }
@@ -123,8 +120,7 @@ export async function uploadAvatar(formData: FormData): Promise<{ ok: boolean; m
   if (file.type !== "image/jpeg" || file.size > 1_000_000) return { ok: false, message: "The photo must be a JPEG under 1 MB." };
 
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { ok: false, message: "You are signed out." };
+  const user = await getUser();
 
   const path = `${user.id}/avatar.jpg`; // one photo per user, replaced each time
   const { error } = await supabase.storage
@@ -141,8 +137,7 @@ export async function uploadAvatar(formData: FormData): Promise<{ ok: boolean; m
 
 export async function removeAvatar() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return;
+  const user = await getUser();
   await supabase.storage.from("avatars").remove([`${user.id}/avatar.jpg`]);
   await supabase.from("profiles").update({ avatar_url: null }).eq("id", user.id);
   refreshAll();
