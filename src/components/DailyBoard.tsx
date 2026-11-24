@@ -52,7 +52,7 @@ export default function DailyBoard({ lists, today, serverNow }: Props) {
 
       {shown.length === 0 && (
         <p className={styles.empty}>
-          Nothing here yet. Open My lists (the eye icon) and star the tasks you want today.
+          Nothing here yet. Open My lists (the stacked-lists icon) and star the tasks you want today.
         </p>
       )}
 

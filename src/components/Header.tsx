@@ -1,11 +1,10 @@
 import Link from "next/link";
 import styles from "@/styles/app.module.css";
-import { EyeIcon, EyeOffIcon, GearIcon } from "./icons";
+import { DailyIcon, GearIcon, ListsIcon } from "./icons";
 
 type Props = { page: "daily" | "lists"; title: string; subtitle: string };
 
 export default function Header({ page, title, subtitle }: Props) {
-  const onDaily = page === "daily";
   return (
     <header className={styles.header}>
       <div />
@@ -13,19 +12,27 @@ export default function Header({ page, title, subtitle }: Props) {
         <h1>{title}</h1>
         <p className={styles.sub}>{subtitle}</p>
       </div>
-      <div className={styles.icons}>
-        {/* the eye switches pages: crossed on the daily page, open on the lists page */}
+      <nav className={styles.icons} aria-label="Pages">
         <Link
-          href={onDaily ? "/lists" : "/"}
-          className={styles.iconBtn}
-          aria-label={onDaily ? "See all lists" : "Back to daily list"}
+          href="/"
+          className={`${styles.iconBtn} ${page === "daily" ? styles.iconActive : ""}`}
+          aria-label="Daily list"
+          aria-current={page === "daily" ? "page" : undefined}
         >
-          {onDaily ? <EyeOffIcon /> : <EyeIcon />}
+          <DailyIcon />
         </Link>
-                <Link href="/settings" className={styles.iconBtn} aria-label="Settings">
+        <Link
+          href="/lists"
+          className={`${styles.iconBtn} ${page === "lists" ? styles.iconActive : ""}`}
+          aria-label="My lists"
+          aria-current={page === "lists" ? "page" : undefined}
+        >
+          <ListsIcon />
+        </Link>
+        <Link href="/settings" className={styles.iconBtn} aria-label="Settings">
           <GearIcon />
         </Link>
-      </div>
+      </nav>
     </header>
   );
 }
