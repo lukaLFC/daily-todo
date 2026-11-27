@@ -12,8 +12,12 @@
   --due-bg: #fdebd7;
 }
 
-:root { color-scheme: light dark; }
-:root[data-theme="day"] { color-scheme: light; }
+:root {
+  color-scheme: light dark;
+}
+:root[data-theme="day"] {
+  color-scheme: light;
+}
 
 :root[data-theme="night"] {
   color-scheme: dark;
